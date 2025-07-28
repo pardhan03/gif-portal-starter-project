@@ -6,14 +6,56 @@ const TWITTER_HANDLE = '_buildspace';
 const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
 
 const App = () => {
+
+  const [walletAddress, setWalletAddress] = useState(null);
+
+  const checkIfWalletIsConnected = async () => {
+    try {
+      const { solana } = window;
+      if (solana) {
+        if (solana?.isPhantom) {
+          console.log('Phantom Wallet is Found!');
+          const res = await solana.connect({
+            onlyIfTrusted: true
+          })
+          setWalletAddress(res?.publickKey?.toString())
+        }
+      } else {
+        console.log('Solana object not found! Get a Phantom wallet!')
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  const connectWallet = async () => {
+    const { solana } = window;
+    if (solana) {
+      const response = await solana.connect();
+      console.log(`Connected with key: ${response?.publickKey?.toString()}`)
+    }
+  }
+
+  const renderNotConnectedContainer = () => {
+    return (
+      <button className="cta-button connect-wallet-button" onClick={connectWallet}>
+        Connect Wallet
+      </button>
+    )
+  }
+
+  useEffect(() => {
+    checkIfWalletIsConnected();
+  }, []);
   return (
     <div className="App">
-      <div className="container">
+      <div className={ walletAddress ? "authed-container" :"container"}>
         <div className="header-container">
           <p className="header">🖼 GIF Portal</p>
           <p className="sub-text">
             View your GIF collection in the metaverse ✨
           </p>
+          {!walletAddress && renderNotConnectedContainer()}
         </div>
         <div className="footer-container">
           <img alt="Twitter Logo" className="twitter-logo" src={twitterLogo} />
