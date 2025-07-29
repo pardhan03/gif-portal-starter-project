@@ -1,7 +1,20 @@
 import twitterLogo from './assets/twitter-logo.svg';
 import './App.css';
 import { useEffect, useState } from 'react';
+import idl from './idl.json';
+import { Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';
+import { Program, AnchorProvider, web3 } from '@project-serum/anchor';
 
+const { SystemProgram, Keypair} = web3;
+
+let baseAccount = Keypair.generate();
+const programID = new PublicKey(idl.address);
+
+const network = clusterApiUrl("devnet");
+
+const opts = {
+  preflightCommitment: "processed",
+};
 // Constants
 const TWITTER_HANDLE = '_buildspace';
 const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
@@ -15,6 +28,8 @@ const TEST_GIFS = [
 const App = () => {
 
   const [walletAddress, setWalletAddress] = useState(null);
+  const [inputValue, setInputValue] = useState('');
+  const [gifList, setGifList] = useState(null);
 
   const checkIfWalletIsConnected = async () => {
     try {
@@ -51,24 +66,105 @@ const App = () => {
     )
   }
 
+  const onChangeInputValue = (event) => {
+    const { value } =event?.target;
+    setInputValue(value);
+  }
+
+  const getProvider = () => {
+    const connection = new Connection(network, opts.preflightCommitment);
+    const provider = new AnchorProvider(connection, window?.solana, opts.preflightCommitment);
+    return provider;
+  }
+
+  const createGifAccount = async () => {
+    try {
+      const provider = getProvider();
+      const program = new Program(idl, programID, provider);
+      await program.rpc.startStuffOff({},{
+      accounts: {
+        baseAccount: baseAccount.publicKey,
+        user: provider.wallet.publicKey,
+        systemProgram: SystemProgram.programId,
+      },
+      signers: [baseAccount],
+    });
+
+    console.log("BaseAccount created:", baseAccount.publicKey.toString());
+    await getGifList();
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  const sendGif = async () => {
+    if(inputValue.length > 0) {
+      console.log('Gif link', inputValue)
+      setGifList([...gifList, inputValue]);
+      setInputValue('');
+    } else {
+      console.log('Please provide a link!')
+    }
+  }
+
+  const getGifList = async () => {
+    try {
+      const provider = getProvider();
+      const program = new Program(idl, programID, provider);
+      const account = await program.account.baseAccount.fetch(baseAccount.publicKey);
+      console.log(account)
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
   const renderConnectedContainer = () => {
-    return (
-      <div className='connected-container'>
-        <div className='gif-grid'>
-          {TEST_GIFS?.map((gif) => (
-            <div className='gif-item' key={gif}>
-              <img src={gif} alt={gif}/>
-            </div>
-          ))}
+    if (gifList === null) {
+      return (
+        <div className='connected-container'>
+          <button className='cta-button submit-gif-button' onClick={createGifAccount}>
+            Do One-Time Intialization for GIF Program Account
+          </button>
         </div>
-      </div>
-    )
+      )
+    } else {
+      return (
+        <div className='connected-container'>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            sendGif();
+          }}>
+            <input
+              type="text"
+              placeholder='Enter gif link!'
+              value={inputValue}
+              onChange={onChangeInputValue}
+            />
+            <button className='cta-button submit-gif-button'>Submit</button>
+          </form>
+          <div className='gif-grid'>
+            {gifList?.map((gif) => (
+              <div className='gif-item' key={gif}>
+                <img src={gif} alt={gif} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
   }
 
   useEffect(() => {
     checkIfWalletIsConnected();
   }, []);
-  console.log(walletAddress)
+
+  useEffect(() => {
+    getGifList();
+    // if(walletAddress) {
+    //   setGifList(TEST_GIFS)
+    // }
+  }, [walletAddress]);
+
   return (
     <div className="App">
       <div className={ walletAddress ? "authed-container" :"container"}>
