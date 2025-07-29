@@ -98,10 +98,25 @@ const App = () => {
   }
 
   const sendGif = async () => {
-    if(inputValue.length > 0) {
+    if (inputValue.length > 0) {
       console.log('Gif link', inputValue)
-      setGifList([...gifList, inputValue]);
       setInputValue('');
+      try {
+        const provider = getProvider();
+        const program = new Program(idl, programID, provider);
+
+        await program.rpc.startStuffOff(inputValue,
+          {
+            accounts: {
+              baseAccount: baseAccount.publicKey,
+              user: provider.wallet.publicKey,
+            }
+          })
+
+        await getGifList();
+      } catch (error) {
+        console.log(error)
+      }
     } else {
       console.log('Please provide a link!')
     }
